@@ -105,6 +105,137 @@ The script requires proper AWS credentials configured for boto3 to work.
 
 The recursion limit increase may indicate potential issues with recursive calls in CrewAI or Bedrock interactions.
 
+
+# Make Bedrock KB
+This Python script automates the creation and management of an AWS Bedrock Knowledge Base for storing and indexing PDF files from an S3 bucket. It uses the AWS SDK (boto3) to interact with Bedrock services, sets up a knowledge base with a vector-based configuration, creates a data source linked to an S3 bucket, and monitors the ingestion process. Below is a detailed description of the script:
+## Key Components and Functionality:
+Imports and Setup:
+Libraries:
+boto3: For interacting with AWS services (Bedrock and Bedrock Agent).
+
+os: For accessing environment variables.
+
+logging: For logging script activity to stdout.
+
+sys: For configuring the logging stream.
+
+botocore.exceptions.ClientError: For handling AWS-specific errors.
+
+dotenv: For loading environment variables from a .env file.
+
+## Logging Configuration:
+Configures logging to output to stdout with a timestamp, level, and message format.
+
+Uses a logger named after the module (__name__) for consistent logging.
+
+Environment Variables:
+Loads variables from a .env file using load_dotenv().
+
+Expects AWS_REGION to be set for AWS service interactions.
+
+AWS Session and Clients:
+Initializes a boto3.Session with the region specified in the AWS_REGION environment variable.
+
+Creates two clients:
+bedrock: For general Bedrock operations.
+
+bedrock_agent: For managing Bedrock Knowledge Base and data sources.
+
+Function: create_knowledge_base(bucket_name, role_arn):
+Purpose: Creates a Bedrock Knowledge Base, associates it with an S3 bucket as a data source, and starts an ingestion job to index PDF files.
+
+## Steps:
+Create Knowledge Base:
+Calls bedrock_agent.create_knowledge_base to create a knowledge base named "pdf-knowledge-base."
+
+Configures it as a VECTOR type with the amazon.titan-embed-text-v2:0 embedding model.
+
+Uses OPENSEARCH_SERVERLESS for storage, with a vector index named "pdf-vector-index" and predefined field mappings (embedding, text, metadata).
+
+Logs the created Knowledge Base ID.
+
+## Create Data Source:
+Calls bedrock_agent.create_data_source to link an S3 bucket (specified by bucket_name) to the knowledge base.
+
+Configures the data source to include files under the pdfs/ prefix in the bucket.
+
+Logs the created Data Source ID.
+
+## Start Ingestion Job:
+Calls bedrock_agent.start_ingestion_job to begin indexing the PDF files from the S3 bucket.
+
+Logs the Ingestion Job ID.
+
+Return Values: Returns the Knowledge Base ID (kb_id), Data Source ID (ds_id), and Ingestion Job ID (job_id).
+
+Error Handling: Catches ClientError exceptions, logs the error, and re-raises it.
+
+Function: check_ingestion_status(kb_id, ds_id, job_id):
+Purpose: Checks the status of an ingestion job for a given knowledge base and data source.
+
+Steps:
+Calls bedrock_agent.get_ingestion_job to retrieve the job status.
+
+Logs and returns the status (e.g., "RUNNING," "COMPLETE," "FAILED," "STOPPED").
+
+Error Handling: Catches ClientError exceptions, logs the error, and re-raises it.
+
+Main Execution:
+Environment Setup:
+Hardcodes the S3 bucket name (bedrock-kb-pdfs-123456789012-eu-north-1), IAM role ARN (arn:aws:iam::311410995876:role/SageMaker-MLengineer), and AWS region (eu-north-1).
+
+Note: These values are placeholders and should be replaced with actual values or sourced from environment variables for security.
+
+```bash
+# Create Bucket
+
+aws s3 mb s3://bedrock-kb-pdfs-$(aws sts get-caller-identity --query Account --output text)-eu-north-1 --region eu-north-1
+
+# Upload PDF Files
+
+aws s3 cp ./pdfs/ s3://bedrock-kb-pdfs-123456789012-eu-north-1/pdfs/ --recursive --region eu-north-1
+```
+
+## Execution Flow:
+Calls create_knowledge_base to set up the knowledge base, data source, and ingestion job.
+
+Enters a loop to check the ingestion job status every 30 seconds using check_ingestion_status.
+
+Exits the loop when the job status is "COMPLETE," "FAILED," or "STOPPED."
+
+Dependencies:
+AWS Services:
+AWS Bedrock and Bedrock Agent for knowledge base management.
+
+Amazon S3 for storing PDF files.
+
+AWS IAM role with permissions for Bedrock and S3 access.
+
+Python Libraries: boto3, python-dotenv.
+
+Environment Variables:
+AWS_REGION: AWS region (e.g., eu-north-1).
+
+The script also expects a .env file for loading environment variables.
+
+Assumptions and Notes:
+Placeholder Values: The bucket name and role ARN are hardcoded and should be replaced with actual values or loaded securely from environment variables.
+
+AWS Credentials: The script assumes AWS credentials are configured (e.g., via AWS CLI, environment variables, or IAM roles).
+
+Embedding Model: Uses amazon.titan-embed-text-v2:0 for vector embeddings, which must be available in the specified region.
+
+OpenSearch Serverless: The script assumes an OpenSearch Serverless collection will be created automatically, as collectionArn is left empty.
+
+Ingestion Monitoring: The script polls the ingestion job status every 30 seconds, which may need adjustment based on the volume of data or use case.
+
+Error Handling: Robustly logs errors but re-raises them, requiring external handling (e.g., in a production environment).
+
+Use Case:
+This script is designed to automate the setup of an AWS Bedrock Knowledge Base for indexing and querying PDF files stored in an S3 bucket. It’s useful for applications requiring searchable document repositories, such as knowledge management systems or document retrieval services. The script handles the creation, data source integration, and ingestion monitoring, making it a foundational component for building a scalable document search solution.
+
+
+
 ## Use Case:
 This script is designed to provide a RESTful API for querying an AWS Bedrock Knowledge Base using a CrewAI agent. It’s suitable for applications needing to retrieve structured information from a knowledge base via a web interface, with robust logging and error handling for production use.
 
